@@ -1,0 +1,157 @@
+// DROPOUT LOGIT MODEL
+
+clear all
+pause off
+set more off
+
+// NOTES:
+// uncomment graphs
+
+// set globals:
+global data "C:\Users\x280\Desktop\AM project\stata data"
+global output "C:\Users\x280\Desktop\AM project\output"
+cd "C:\Users\x280\Desktop\AM project\output"
+
+
+// simplified:
+use "$data\roster", clear
+codebook hhcode
+count
+
+// economic situation of household control:
+use "$data\secg.dta", clear
+// only need economic situation of household
+tab itc
+keep if itc == 11
+// check isid
+count // 160k
+codebook hhcode // one hhcode is being repeated
+duplicates list hhcode
+// drop this household
+drop if hhcode == 319102009
+keep hhcode sgaq04
+rename sgaq04 econ_hh
+// assign value labels
+tab econ_hh
+label define econ_hh 1 "Much worse" 2 "Slightly worse " 3 "Like Before" 4 "A little better than before" 5 "Far better than before " 6 "Don't know"
+lab val econ_hh econ_hh
+isid hhcode
+save econ.dta, replace
+
+// DROPOUT:
+
+use "$data\secc1.dta", clear
+// reasons graph
+// graph bar, over(sc1q10)
+
+// see page 26 of instructions
+// code 2 if dropped out
+sum sc1q01
+// this is the var for drop out
+codebook sc1q01
+// 2 =  attended school/institution in past
+tab sc1q01
+// 43% never attended school
+// 30% dropped out
+
+// piechart enrolment status
+// graph pie, over(sc1q01)
+
+// creating the drop out variable
+// remove those who never attended school/institution
+drop if sc1q01 == 1
+gen dropout = (sc1q01 == 2)
+sum dropout
+count
+// var created
+
+// graph for dropouts by region and province
+gen dropout_rates = dropout*100
+// graph bar dropout_rates, over(region) by(province)
+
+keep dropout hhcode idc region province psu
+
+// CONTROLS:
+
+// urban vs rural
+codebook region
+tab region
+// create a dummy for urban 
+gen urban = (region == 2)
+reg dropout urban
+// all obs retained
+
+// more controls:
+
+// merge w household
+merge 1:1 hhcode idc using "$data\roster.dta", gen(abc)
+drop if abc == 2
+count
+
+keep dropout hhcode idc region province psu age urban sb1q4 //UPDATE
+
+// age 
+drop if age > 16
+sum age if dropout == 1
+count
+reg dropout urban age
+// prob of dropout increases with age
+
+// gender
+rename sb1q4 gender
+codebook gender
+tab gender, sum(dropout)
+// create male dummy
+codebook gender
+gen male = (gender == 1)
+sum male
+reg dropout urban male age
+// signs align with theory
+
+// add economic situation of household control
+codebook hhcode // 90k households
+// 160k households in other file
+merge m:1 hhcode using econ.dta, gen(xyz)
+// 202,998 obs matched
+// can manually check by browsing that for a single household, the value of econ_hh stays the same
+// drop unmatched
+drop if xyz == 1 | xyz == 2
+count
+// only matched remaining
+reg dropout urban age econ_hh
+// signs align with theory
+
+// household head's gender:
+merge m:1 hhcode using "$data\secf1.dta", gen(st)
+drop if st == 2
+count
+// gender of owner of house
+tab sf1q02
+gen head_male = (sf1q02 == 1)
+keep hhcode psu province idc dropout urban age male head_male econ_hh
+reg dropout urban male age econ_hh head_male
+
+
+// THE FINAL EQUATION:
+
+// 1) LPM:
+reg dropout urban male age econ_hh head_male
+outreg2 using regression.rtf, replace 
+
+// 2) LPM w/ provincial dummies
+tab province, gen(provincial)
+reg dropout urban male age econ_hh head_male provincial1-provincial3
+outreg2 using regression.rtf, append label
+
+// 3) Logit Model
+logit dropout urban male age econ_hh head_male
+outreg2 using logit.rtf, replace
+
+// 4) Logit odds ratio
+logit dropout urban male age econ_hh head_male, or
+outreg2 using logit.rtf, append label
+
+// summary stats
+label variable age ""
+label variable econ_hh ""
+outreg2 using sumstats.rtf, sum(detail) replace eqkeep(N mean) lab
