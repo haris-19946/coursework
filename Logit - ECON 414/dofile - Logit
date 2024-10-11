@@ -1,5 +1,7 @@
 // DROPOUT LOGIT MODEL
 
+// Download data using https://www.pbs.gov.pk/content/pslm-district-level-survey-2019-20-microdata (DATA IN STATA)
+
 clear all
 pause off
 set more off
