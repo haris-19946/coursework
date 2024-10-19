@@ -1,0 +1,27 @@
+var y i k l r w c; % i = investment
+varexo z;
+parameters alpha beta delta a;
+beta = 0.99;
+delta = 0.025;
+alpha = 0.33;
+a = 1;
+
+model;
+1/c = beta*(1/c(+1)*(1+r(+1)-delta));
+w/c = a/(1-l);
+c = w*l + (1+r-delta)*k - k(+1);
+r = exp(z)*(l/k)^(1-alpha);
+w = exp(z)*(k/l)^(alpha);
+y = exp(z)*(k)^(alpha)*l^(1-alpha);
+i = y - c;
+end;
+
+initval;
+k = 9;
+c = 0.7;
+l = 0.3;
+w = 2;
+r = 0;
+z = 0;
+end;
+steady;
