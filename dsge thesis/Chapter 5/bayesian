@@ -1,3 +1,5 @@
+% The data file may be generated in the Output folder in which case it needs to be copied to the Folder where all .mod files lie.
+
 var y i k l r w c z; % i = investment
 predetermined_variables k;
 varexo e;
